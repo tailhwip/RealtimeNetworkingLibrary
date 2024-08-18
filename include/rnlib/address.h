@@ -9,14 +9,12 @@ extern "C" {
 #endif
 
 struct RnAddressIPv4 {
-  uint8_t octets[4];
-  uint16_t port;
-};
+  uint8_t data[6];
+} __attribute__((aligned(2)));
 
 struct RnAddressIPv6 {
-  uint16_t groups[8];
-  uint16_t port;
-};
+  uint8_t data[18];
+} __attribute__((aligned(2)));
 
 struct RnAddressIPv4 rnAddressCreateIPv4( // LLVM 19
     uint8_t octets[4],

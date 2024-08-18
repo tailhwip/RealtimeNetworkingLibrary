@@ -1,11 +1,13 @@
 #include "address.h"
 
+#include <string.h>
+
 // clang-format off
 #ifdef _WIN32
-    #include <winsock2.h>
+  #include <ws2tcpip.h>
 #else
-    #include <netinet/in.h>
-    #include <sys/socket.h>
+  #include <netinet/in.h>
+  #include <sys/socket.h>
 #endif
 // clang-format on
 
@@ -13,11 +15,12 @@ struct RnAddressIPv4 rnAddressCreateIPv4( // LLVM 19
     uint8_t octets[4],
     uint16_t port
 ) {
-  struct RnAddressIPv4 address;
-  *(uint32_t *)address.octets = htonl(*(uint32_t *)octets);
+  struct RxAddressIPv4 address;
+  *(uint16_t *)&address.octets[0] = htonl(*(uint16_t *)&octets[2]);
+  *(uint16_t *)&address.octets[2] = htons(*(uint16_t *)&octets[0]);
   address.port = htons(port);
 
-  return address;
+  return *(struct RnAddressIPv4 *)&address;
 }
 
 struct RnAddressIPv4 rnAddressCreateIPv4Args(
@@ -34,12 +37,13 @@ struct RnAddressIPv6 rnAddressCreateIPv6( // LLVM 19
     uint16_t groups[8],
     uint16_t port
 ) {
-  struct RnAddressIPv6 address;
-  *(uint64_t *)&address.groups[0] = htonll(*(uint64_t *)&groups[4]);
-  *(uint64_t *)&address.groups[4] = htonll(*(uint64_t *)&groups[0]);
+  struct RxAddressIPv6 address;
+  for (int i = 0; i < 8; i += 1) {
+    address.groups[i] = htons(groups[7 - i]);
+  }
   address.port = htons(port);
 
-  return address;
+  return *(struct RnAddressIPv6 *)&address;
 }
 
 struct RnAddressIPv6 rnAddressCreateIPv6Args(
@@ -53,25 +57,16 @@ struct RnAddressIPv6 rnAddressCreateIPv6Args(
   return rnAddressCreateIPv6(groups, port);
 }
 
-bool rnAddressEqualsIPv4(
-    const struct RnAddressIPv4 *left,
-    const struct RnAddressIPv4 *right
+bool rxAddressEqualsIPv4(
+    const struct RxAddressIPv4 *left,
+    const struct RxAddressIPv4 *right
 ) {
-  uint32_t left_ipv4 = *(uint32_t *)left->octets;
-  uint32_t right_ipv4 = *(uint32_t *)right->octets;
-  return (left_ipv4 == right_ipv4) && (left->port == right->port);
+  return memcmp(left, right, sizeof(struct RnAddressIPv4)) == 0;
 }
 
-bool rnAddressEqualsIPv6(
-    const struct RnAddressIPv6 *left,
-    const struct RnAddressIPv6 *right
+bool rxAddressEqualsIPv6(
+    const struct RxAddressIPv6 *left,
+    const struct RxAddressIPv6 *right
 ) {
-  uint64_t left_ipv6_head = *(uint64_t *)&left->groups[0];
-  uint64_t left_ipv6_tail = *(uint64_t *)&left->groups[4];
-
-  uint64_t right_ipv6_head = *(uint64_t *)&right->groups[0];
-  uint64_t right_ipv6_tail = *(uint64_t *)&right->groups[4];
-
-  return (left_ipv6_head == right_ipv6_head) &&
-         (left_ipv6_tail == right_ipv6_tail) && (left->port == right->port);
+  return memcmp(left, right, sizeof(struct RnAddressIPv6)) == 0;
 }

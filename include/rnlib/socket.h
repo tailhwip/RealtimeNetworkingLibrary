@@ -8,12 +8,12 @@ extern "C" {
 #endif
 
 struct RnSocketIPv4 {
-  int handle;
-};
+  uint8_t data[4];
+} __attribute__((aligned(4)));
 
 struct RnSocketIPv6 {
-  int handle;
-};
+  uint8_t data[4];
+} __attribute__((aligned(4)));
 
 struct RnSocketsSetupResult rnSocketsSetup();
 
@@ -38,13 +38,13 @@ struct RnSocketsCleanupResult {
 };
 
 struct RnSocketOpenResult rnSocketOpenIPv4(
-    _Out_ struct RnSocketIPv4 *socket,
-    const struct RnAddressIPv4 *bind_to
+    _Out_ struct RnSocketIPv4 *socket_out,
+    const struct RnAddressIPv4 *bind_to_address
 );
 
 struct RnSocketOpenResult rnSocketOpenIPv6(
-    _Out_ struct RnSocketIPv6 *socket,
-    const struct RnAddressIPv6 *bind_to
+    _Out_ struct RnSocketIPv6 *socket_out,
+    const struct RnAddressIPv6 *bind_to_address
 );
 
 struct RnSocketOpenResult {

@@ -3,47 +3,49 @@
 
 #include "../include/rnlib/socket.h"
 
-struct RnSocketSendDataResult rnSocketSendDataIPv4(
+typedef int socket_h;
+
+struct RxSocketSendDataResult rxSocketSendDataIPv4(
     const struct RnSocketIPv4 *socket,
-    const struct RnAddressIPv4 *send_to,
+    const struct RnAddressIPv4 *send_to_address,
     const void *data,
     size_t data_size
 );
 
-struct RnSocketSendDataResult rnSocketSendDataIPv6(
+struct RxSocketSendDataResult rxSocketSendDataIPv6(
     const struct RnSocketIPv6 *socket,
-    const struct RnAddressIPv6 *send_to,
+    const struct RnAddressIPv6 *send_to_address,
     const void *data,
     size_t data_size
 );
 
-struct RnSocketSendDataResult {
+struct RxSocketSendDataResult {
   enum {
-    RN_SOCKET_SEND_DATA_OK,
-    RN_SOCKET_SEND_DATA_ERROR,
+    RX_SOCKET_SEND_DATA_OK,
+    RX_SOCKET_SEND_DATA_ERROR,
   } error;
 
   int error_code;
 };
 
-struct RnSocketReceiveDataResult rnSocketReceiveDataIPv4(
+struct RxSocketReceiveDataResult rxSocketReceiveDataIPv4(
     const struct RnSocketIPv4 *socket,
-    _Out_ struct RnAddressIPv4 *receive_from,
+    _Out_ struct RnAddressIPv4 *receive_from_address,
     _Out_ void *data,
-    size_t data_size
+    _Out_ size_t *data_size
 );
 
-struct RnSocketReceiveDataResult rnSocketReceiveDataIPv6(
+struct RxSocketReceiveDataResult rxSocketReceiveDataIPv6(
     const struct RnSocketIPv6 *socket,
-    _Out_ struct RnAddressIPv6 *receive_from,
+    _Out_ struct RnAddressIPv6 *receive_from_address,
     _Out_ void *data,
-    size_t data_size
+    _Out_ size_t *data_size
 );
 
-struct RnSocketReceiveDataResult {
+struct RxSocketReceiveDataResult {
   enum {
-    RN_SOCKET_RECEIVE_DATA_OK,
-    RN_SOCKET_RECEIVE_DATA_ERROR,
+    RX_SOCKET_RECEIVE_DATA_OK,
+    RX_SOCKET_RECEIVE_DATA_ERROR,
   } error;
 
   int error_code;
