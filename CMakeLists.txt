@@ -7,6 +7,7 @@ add_library(rnlib)
 
 target_sources(rnlib PUBLIC
     include/rnlib/address.h
+    include/rnlib/result.h
     include/rnlib/socket.h)
 
 target_sources(rnlib PRIVATE

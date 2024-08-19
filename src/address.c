@@ -15,7 +15,7 @@ struct RnAddressIPv4 rnAddressCreateIPv4( // LLVM 19
     uint8_t octets[4],
     uint16_t port
 ) {
-  struct RxAddressIPv4 address;
+  struct AddressIPv4 address;
   *(uint16_t *)&address.octets[0] = htonl(*(uint16_t *)&octets[2]);
   *(uint16_t *)&address.octets[2] = htons(*(uint16_t *)&octets[0]);
   address.port = htons(port);
@@ -37,7 +37,7 @@ struct RnAddressIPv6 rnAddressCreateIPv6( // LLVM 19
     uint16_t groups[8],
     uint16_t port
 ) {
-  struct RxAddressIPv6 address;
+  struct AddressIPv6 address;
   for (int i = 0; i < 8; i += 1) {
     address.groups[i] = htons(groups[7 - i]);
   }
@@ -57,16 +57,16 @@ struct RnAddressIPv6 rnAddressCreateIPv6Args(
   return rnAddressCreateIPv6(groups, port);
 }
 
-bool rxAddressEqualsIPv4(
-    const struct RxAddressIPv4 *left,
-    const struct RxAddressIPv4 *right
+bool addressEqualsIPv4(
+    const struct AddressIPv4 *left,
+    const struct AddressIPv4 *right
 ) {
   return memcmp(left, right, sizeof(struct RnAddressIPv4)) == 0;
 }
 
-bool rxAddressEqualsIPv6(
-    const struct RxAddressIPv6 *left,
-    const struct RxAddressIPv6 *right
+bool addressEqualsIPv6(
+    const struct AddressIPv6 *left,
+    const struct AddressIPv6 *right
 ) {
   return memcmp(left, right, sizeof(struct RnAddressIPv6)) == 0;
 }

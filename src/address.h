@@ -3,24 +3,24 @@
 
 #include "../include/rnlib/address.h"
 
-struct RxAddressIPv4 {
+struct AddressIPv4 {
   uint8_t octets[4];
   uint16_t port;
 };
 
-struct RxAddressIPv6 {
+struct AddressIPv6 {
   uint16_t groups[8];
   uint16_t port;
 };
 
-bool rxAddressEqualsIPv4( // LLVM 19
-    const struct RxAddressIPv4 *left,
-    const struct RxAddressIPv4 *right
+bool addressEqualsIPv4( // LLVM 19
+    const struct AddressIPv4 *left,
+    const struct AddressIPv4 *right
 );
 
-bool rxAddressEqualsIPv6( // LLVM 19
-    const struct RxAddressIPv6 *left,
-    const struct RxAddressIPv6 *right
+bool addressEqualsIPv6( // LLVM 19
+    const struct AddressIPv6 *left,
+    const struct AddressIPv6 *right
 );
 
 #endif // RN_ADDRESS_H_INTERNAL
