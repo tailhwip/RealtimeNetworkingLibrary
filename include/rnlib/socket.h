@@ -1,45 +1,29 @@
-#ifndef RN_SOCKET_H
-#define RN_SOCKET_H
+#pragma once
 
 #include "address.h"
+#include "packet.h"
 #include "result.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace rn
+{
 
-struct RnSocketIPv4 {
-  uint8_t data[4];
-} __attribute__((aligned(4)));
+template <typename AddressT, typename sockaddr_t = AddressT::sockaddr_t> struct Socket
+{
+public:
+    result_t Open();
 
-struct RnSocketIPv6 {
-  uint8_t data[4];
-} __attribute__((aligned(4)));
+    result_t Bind(const AddressT &bind_address);
 
-rnresult_t rnSocketsSetup();
+    result_t SetNonBlocking();
 
-rnresult_t rnSocketsCleanup();
+    result_t SendData(const AddressT &to_address, const PacketBuffer &buffer);
 
-rnresult_t rnSocketOpenIPv4(
-    _Out_ struct RnSocketIPv4 *socket,
-    const struct RnAddressIPv4 *bind_to
-);
+    result_t ReceiveData(_Out_ AddressT &from_address, _Out_ PacketBuffer &buffer);
 
-rnresult_t rnSocketOpenIPv6(
-    _Out_ struct RnSocketIPv6 *socket,
-    const struct RnAddressIPv6 *bind_to
-);
+    result_t Close();
 
-rnresult_t rnSocketCloseIPv4( // LLVM 19
-    const struct RnSocketIPv4 *socket
-);
+private:
+    int handle;
+};
 
-rnresult_t rnSocketCloseIPv6( // LLVM 19
-    const struct RnSocketIPv6 *socket
-);
-
-#ifdef __cplusplus
-} // extern C
-#endif
-
-#endif // RN_SOCKET_H
+} // namespace rn

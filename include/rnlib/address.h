@@ -1,48 +1,46 @@
-#ifndef RN_ADDRESS_H
-#define RN_ADDRESS_H
+#pragma once
 
-#include <stdbool.h>
-#include <stdint.h>
+#include <compare>
+#include <cstdint>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+struct sockaddr_in;
+struct sockaddr_in6;
 
-struct RnAddressIPv4 {
-  uint8_t data[6];
-} __attribute__((aligned(2)));
+namespace rn
+{
 
-struct RnAddressIPv6 {
-  uint8_t data[18];
-} __attribute__((aligned(2)));
+struct IPv4
+{
+    using sockaddr_t = sockaddr_in;
 
-struct RnAddressIPv4 rnAddressCreateIPv4( // LLVM 19
-    uint8_t octets[4],
-    uint16_t port
-);
+public:
+    IPv4(uint8_t octets[4], uint16_t port);
+    IPv4(const sockaddr_t &address);
 
-struct RnAddressIPv4 rnAddressCreateIPv4Args(
-    // clang-format off
-    uint8_t a, uint8_t b, uint8_t c, uint8_t d,
-    // clang-format on
-    uint16_t port
-);
+    auto operator<=>(const IPv4 &) const = default;
 
-struct RnAddressIPv6 rnAddressCreateIPv6( // LLVM 19
-    uint16_t groups[8],
-    uint16_t port
-);
+    sockaddr_t ToSockAddr() const;
 
-struct RnAddressIPv6 rnAddressCreateIPv6Args(
-    // clang-format off
-    uint16_t a, uint16_t b, uint16_t c, uint16_t d,
-    uint16_t e, uint16_t f, uint16_t g, uint16_t h,
-    // clang-format on
-    uint16_t port
-);
+private:
+    uint8_t octets[4];
+    uint16_t port;
+};
 
-#ifdef __cplusplus
-} // extern C
-#endif
+struct IPv6
+{
+    using sockaddr_t = sockaddr_in6;
 
-#endif // RN_ADDRESS_H
+public:
+    IPv6(uint16_t groups[8], uint16_t port);
+    IPv6(const sockaddr_t &address);
+
+    auto operator<=>(const IPv6 &) const = default;
+
+    sockaddr_t ToSockAddr() const;
+
+private:
+    uint16_t groups[8];
+    uint16_t port;
+};
+
+} // namespace rn

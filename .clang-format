@@ -1,28 +1,30 @@
-BasedOnStyle: LLVM
+BasedOnStyle: Microsoft
 
-AlignAfterOpenBracket: BlockIndent
+AccessModifierOffset: -4
+ColumnLimit: 90
+
+AlignAfterOpenBracket: Align
 AlignArrayOfStructures: Right
 AlignConsecutiveBitFields: Consecutive
-AlignEscapedNewlines: DontAlign
+AlignOperands: AlignAfterOperator
 
-# AllowAllArgumentsOnNextLine: false
-AllowAllParametersOfDeclarationOnNextLine: false
-AllowShortIfStatementsOnASingleLine: AllIfsAndElse
-AllowShortFunctionsOnASingleLine: None
+AllowShortLambdasOnASingleLine: All
 
-BinPackArguments: false
-BinPackParameters: false
-
-# BreakFunctionDefinitionParameters: true
+BreakBeforeBraces: Allman
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeColon
+BreakInheritanceList: AfterComma
+# BreakTemplateDeclarations: Yes
 
 IncludeBlocks: Regroup
 SortIncludes: CaseSensitive
+SortUsingDeclarations: Lexicographic
 
 IndentCaseLabels: true
-InsertNewlineAtEOF: true
+IndentPPDirectives: BeforeHash
 
 Cpp11BracedListStyle: false
 SpaceBeforeCpp11BracedList: true
 SpaceInEmptyBlock: true
 
-PenaltyReturnTypeOnItsOwnLine: 1000
+InsertNewlineAtEOF: true
