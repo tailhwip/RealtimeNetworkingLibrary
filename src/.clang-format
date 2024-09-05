@@ -1,0 +1,40 @@
+# Shared formatting
+
+BasedOnStyle: Microsoft
+
+AlignAfterOpenBracket: AlwaysBreak
+BreakBeforeBraces: Allman
+# BreakTemplateDeclarations: Yes # since Clang 19
+AlwaysBreakTemplateDeclarations: true # remove Clang 19
+
+IncludeBlocks: Regroup
+SortIncludes: CaseSensitive
+SortUsingDeclarations: Lexicographic
+
+Cpp11BracedListStyle: false
+SpaceBeforeCpp11BracedList: true
+SpaceInEmptyBlock: true
+
+IndentPPDirectives: BeforeHash
+InsertNewlineAtEOF: true
+
+# Source formatting
+
+ColumnLimit: 90
+InsertBraces: true
+
+AlignArrayOfStructures: Right
+AlignOperands: DontAlign
+
+# AllowShortCaseExpressionOnASingleLine: true # since Clang 19
+AllowShortLambdasOnASingleLine: All
+
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeColon
+PackConstructorInitializers: NextLine
+# BreakFunctionDefinitionParameters: true # since Clang 19
+
+ContinuationIndentWidth: 8
+IndentCaseLabels: true
+
+PenaltyBreakAssignment: 1000
