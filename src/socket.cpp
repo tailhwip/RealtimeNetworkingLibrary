@@ -1,5 +1,6 @@
 #include "../include/rnlib/socket.h"
 
+#include <expected>
 #include <type_traits>
 
 #ifdef _WIN32
@@ -17,108 +18,150 @@
 
 using namespace rn;
 
-template <typename T, typename sockaddr_t> result_t Socket<T, sockaddr_t>::Open()
+template <typename T>
+Socket<T>::Socket(int handle) : handle { handle }
 {
+}
+
+template <typename T>
+Socket<T>::~Socket()
+{
+#ifdef _WIN32
+    closesocket(handle);
+#else
+    close(handle);
+#endif
+}
+
+template <typename T>
+std::optional<int> Socket<T>::SendData(
+        const T &to_addr, const void *buffer, size_t buffer_size)
+{
+    using sockaddr_t = T::sockaddr_t;
+
+    const char *data = (const char *)buffer;
+    sockaddr_t dst = to_addr.ToSockAddr();
+    int result = sendto(handle, data, buffer_size, 0, (sockaddr *)&dst, sizeof(dst));
+
+#ifdef _WIN32
+    if (result == SOCKET_ERROR)
+    {
+        return WSAGetLastError();
+    }
+#else
+    if (result == -1)
+    {
+        return errno;
+    }
+#endif
+
+    return std::nullopt;
+}
+
+template <typename T>
+std::optional<int> Socket<T>::RecvData(
+        _Out_ T &from_addr, _Out_ void *buffer, _Inout_ size_t &buffer_size)
+{
+    using sockaddr_t = T::sockaddr_t;
+
+    char *data = (char *)buffer;
+    sockaddr_t src;
+    int src_size = sizeof(sockaddr_t);
+    int result = recvfrom(handle, data, buffer_size, 0, (sockaddr *)&src, &src_size);
+
+#ifdef _WIN32
+    if (result == SOCKET_ERROR)
+    {
+        return WSAGetLastError();
+    }
+#else
+    if (result == -1)
+    {
+        return errno;
+    }
+#endif
+
+    from_addr = T(*(sockaddr_t *)&src);
+    buffer_size = result;
+
+    return std::nullopt;
+}
+
+template <typename T>
+SocketFactory<T>::SocketFactory()
+{
+#ifdef _WIN32
+    WSADATA data;
+    WSAStartup(MAKEWORD(2, 2), &data);
+#endif
+}
+
+template <typename T>
+SocketFactory<T>::~SocketFactory()
+{
+#ifdef _WIN32
+    WSACleanup();
+#endif
+}
+
+template <typename T>
+std::expected<Socket<T>, int> SocketFactory<T>::CreateSocket(
+        const T &bind_addr, bool blocking)
+{
+    using sockaddr_t = T::sockaddr_t;
+
     int family = std::is_same<T, IPv4>::value ? AF_INET : AF_INET6;
     int handle = socket(family, SOCK_DGRAM, IPPROTO_UDP);
 #ifdef _WIN32
     if (handle == INVALID_SOCKET)
-        return WSAGetLastError();
+    {
+        return std::unexpected(WSAGetLastError());
+    }
 #else
     if (handle == -1)
-        return errno;
+    {
+        return std::unexpected(errno);
+    }
 #endif
 
-    this->handle = handle;
-    return RN_RESULT_OK;
-}
-
-template <typename T, typename sockaddr_t>
-result_t Socket<T, sockaddr_t>::Bind(const T &bind_addr)
-{
-    sockaddr_t sock_addr = bind_addr.ToSockAddr();
-    int result = bind(handle, (sockaddr *)&sock_addr, sizeof(sock_addr));
+    sockaddr_t host = bind_addr.ToSockAddr();
+    int bind_result = bind(handle, (sockaddr *)&host, sizeof(host));
 #ifdef _WIN32
-    if (result == SOCKET_ERROR)
-        return WSAGetLastError();
+    if (bind_result == SOCKET_ERROR)
+    {
+        return std::unexpected(WSAGetLastError());
+    }
 #else
-    if (result == -1)
-        return errno;
+    if (bind_result == -1)
+    {
+        return std::unexpected(errno);
+    }
 #endif
 
-    return RN_RESULT_OK;
-}
-
-template <typename T, typename sockaddr_t>
-result_t Socket<T, sockaddr_t>::SetNonBlocking()
-{
+    if (!blocking)
+    {
 #ifdef _WIN32
-    DWORD non_blocking = 1;
-    int result = ioctlsocket(handle, FIONBIO, &non_blocking);
-    if (result == SOCKET_ERROR)
-        return WSAGetLastError();
+        DWORD non_blocking = 1;
+        int nbio_result = ioctlsocket(handle, FIONBIO, &non_blocking);
+        if (nbio_result == SOCKET_ERROR)
+        {
+            return std::unexpected(WSAGetLastError());
+        }
 #else
-    int non_blocking = 1;
-    int result = fcntl(handle, F_SETFL, O_NONBLOCK, non_blocking);
-    if (result == -1)
-        return errno;
+        int non_blocking = 1;
+        int nbio_result = fcntl(handle, F_SETFL, O_NONBLOCK, non_blocking);
+        if (nbio_result == -1)
+        {
+            return std::unexpected(errno);
+        }
 #endif
+    }
 
-    return RN_RESULT_OK;
+    return Socket<T>(handle);
 }
 
-template <typename T, typename sockaddr_t>
-result_t Socket<T, sockaddr_t>::SendData(const T &to_addr, const PacketBuffer &buff)
-{
-    sockaddr_t sock_addr = to_addr.ToSockAddr();
-    int result = sendto(handle, (const char *)&buff.data[0], buff.size, 0,
-                        (sockaddr *)&sock_addr, sizeof(sock_addr));
-#ifdef _WIN32
-    if (result == SOCKET_ERROR)
-        return WSAGetLastError();
-#else
-    if (result == -1)
-        return errno;
-#endif
+template class rn::Socket<IPv4>;
+template class rn::Socket<IPv6>;
 
-    return RN_RESULT_OK;
-}
-
-template <typename T, typename sockaddr_t>
-result_t Socket<T, sockaddr_t>::ReceiveData(_Out_ T &from_addr, _Out_ PacketBuffer &buff)
-{
-    sockaddr_t sock_addr;
-    int sock_addr_size = sizeof(sockaddr_t);
-    int result = recvfrom(handle, (char *)&buff.data[0], RN_PACKET_MAX_SIZE, 0,
-                          (sockaddr *)&sock_addr, &sock_addr_size);
-#ifdef _WIN32
-    if (result == SOCKET_ERROR)
-        return WSAGetLastError();
-#else
-    if (result == -1)
-        return errno;
-#endif
-
-    from_addr = T(*(sockaddr_t *)&sock_addr);
-    buff.size = result;
-    return RN_RESULT_OK;
-}
-
-template <typename Address, typename sockaddr_t>
-result_t Socket<Address, sockaddr_t>::Close()
-{
-#ifdef _WIN32
-    int result = closesocket(handle);
-    if (result != NO_ERROR)
-        return WSAGetLastError();
-#else
-    int result = close(handle);
-    if (result == -1)
-        return errno;
-#endif
-
-    return RN_RESULT_OK;
-}
-
-template struct rn::Socket<IPv4>;
-template struct rn::Socket<IPv6>;
+template class rn::SocketFactory<IPv4>;
+template class rn::SocketFactory<IPv6>;

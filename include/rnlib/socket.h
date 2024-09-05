@@ -1,29 +1,48 @@
 #pragma once
 
 #include "address.h"
-#include "packet.h"
-#include "result.h"
+
+#include <expected>
+#include <optional>
 
 namespace rn
 {
 
-template <typename AddressT, typename sockaddr_t = AddressT::sockaddr_t> struct Socket
+template <typename IPvT>
+class Socket
 {
+    template <typename>
+    friend class SocketFactory;
+
 public:
-    result_t Open();
+    ~Socket();
 
-    result_t Bind(const AddressT &bind_address);
+    std::optional<int> SendData(
+        const IPvT &to_address,
+        const void *buffer,
+        size_t buffer_size);
 
-    result_t SetNonBlocking();
-
-    result_t SendData(const AddressT &to_address, const PacketBuffer &buffer);
-
-    result_t ReceiveData(_Out_ AddressT &from_address, _Out_ PacketBuffer &buffer);
-
-    result_t Close();
+    std::optional<int> RecvData(
+        _Out_ IPvT &from_address,
+        _Out_ void *buffer,
+        _Inout_ size_t &buffer_size);
 
 private:
+    Socket(int handle);
+
     int handle;
+};
+
+template <typename IPvT>
+class SocketFactory
+{
+public:
+    SocketFactory();
+    ~SocketFactory();
+
+    std::expected<Socket<IPvT>, int> CreateSocket(
+        const IPvT &bind_address,
+        bool blocking = false);
 };
 
 } // namespace rn
