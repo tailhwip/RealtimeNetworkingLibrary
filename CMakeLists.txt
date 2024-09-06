@@ -9,17 +9,19 @@ add_library(rnlib)
 
 target_sources(rnlib PUBLIC
     include/rnlib/address.h
+    include/rnlib/cryptography.h
     include/rnlib/socket.h)
 
 target_sources(rnlib PRIVATE
     src/address.cpp
+    src/cryptography.cpp
     src/socket.cpp)
 
 if(WIN32)
     target_link_libraries(rnlib PRIVATE wsock32)
 endif()
 
-# Vendor
+# Dependencies
 set(PROJECT_VENDOR_DIR "${CMAKE_SOURCE_DIR}/vendor")
 
 if(WIN32)
