@@ -10,6 +10,7 @@ add_library(rnlib)
 target_sources(
     rnlib
     PUBLIC include/rnlib/address.h 
+           include/rnlib/connection.h
            include/rnlib/cryptography.h
            include/rnlib/packet.h
            include/rnlib/socket.h)
@@ -17,6 +18,7 @@ target_sources(
 target_sources(
     rnlib
     PRIVATE src/address.cpp
+            src/connection.cpp
             src/cryptography.cpp
             src/packet.cpp
             src/socket.cpp)
