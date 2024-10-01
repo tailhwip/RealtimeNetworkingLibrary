@@ -2,47 +2,56 @@
 
 #include "address.h"
 
-#include <expected>
-#include <optional>
+#include <string>
 
 namespace rn
 {
 
-template <typename IPvT>
+template <typename ADDRESS_T>
 class Socket
 {
-    template <typename>
-    friend class SocketFactory;
+private:
+    int handle;
 
 public:
+    Socket(const ADDRESS_T &bind_address);
+    Socket(const Socket &) = delete;
+    Socket(Socket &&);
     ~Socket();
 
-    std::optional<int> SendData(
-        const IPvT &to_address,
-        const void *buffer,
-        size_t buffer_size);
+    void SendData(
+        const ADDRESS_T &to_address,
+        const char *data,
+        size_t data_bytes);
 
-    std::optional<int> RecvData(
-        _Out_ IPvT &from_address,
-        _Out_ void *buffer,
-        _Inout_ size_t &buffer_size);
-
-private:
-    Socket(int handle);
-
-    int handle;
+    void ReceiveData(
+        _Out_ ADDRESS_T &from_address,
+        _Out_ char *buffer,
+        _Inout_ size_t &buffer_bytes);
 };
 
-template <typename IPvT>
-class SocketFactory
+class SocketsInitializer
 {
 public:
-    SocketFactory();
-    ~SocketFactory();
+    SocketsInitializer();
+    SocketsInitializer(const SocketsInitializer &) = delete;
+    SocketsInitializer(SocketsInitializer &&) = delete;
+    ~SocketsInitializer();
+};
 
-    std::expected<Socket<IPvT>, int> CreateSocket(
-        const IPvT &bind_address,
-        bool blocking = false);
+class SocketException
+{
+private:
+    int code;
+    std::string message;
+    std::string location;
+
+public:
+    SocketException(int code, std::string message, std::string file, int line);
+
+    inline int error() const noexcept { return code; }
+    inline const std::string &what() const noexcept { return message; }
+    inline const std::string &where() const noexcept { return location; }
 };
 
 } // namespace rn
