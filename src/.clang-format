@@ -3,6 +3,7 @@
 BasedOnStyle: Microsoft
 
 AlignAfterOpenBracket: AlwaysBreak
+AlignEscapedNewlines: Right
 BreakBeforeBraces: Allman
 # BreakTemplateDeclarations: Yes # since Clang 19
 AlwaysBreakTemplateDeclarations: true # remove Clang 19
@@ -15,7 +16,6 @@ Cpp11BracedListStyle: false
 SpaceBeforeCpp11BracedList: true
 SpaceInEmptyBlock: true
 
-IndentPPDirectives: BeforeHash
 InsertNewlineAtEOF: true
 
 # Source formatting
@@ -29,6 +29,7 @@ AlignOperands: DontAlign
 # AllowShortCaseExpressionOnASingleLine: true # since Clang 19
 AllowShortLambdasOnASingleLine: All
 
+# BreakAfterReturnType: ExceptShortType # since Clang 19
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeColon
 PackConstructorInitializers: NextLine
@@ -36,5 +37,6 @@ PackConstructorInitializers: NextLine
 
 ContinuationIndentWidth: 8
 IndentCaseLabels: true
+IndentPPDirectives: BeforeHash
 
 PenaltyBreakAssignment: 1000
