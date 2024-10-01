@@ -9,36 +9,29 @@ struct sockaddr_in6;
 namespace rn
 {
 
-struct IPv4
+template <typename SOCKADDR_T, typename GROUP_T, size_t GROUPS_SIZE>
+class Address
 {
-    using Octets = std::array<uint8_t, 4>;
-    using sockaddr_t = sockaddr_in;
-
 public:
-    IPv4(Octets octets, uint16_t port);
-    IPv4(const sockaddr_t &address);
+    using Groups = std::array<GROUP_T, GROUPS_SIZE>;
+    using sockaddr_t = SOCKADDR_T;
 
-    sockaddr_t ToSockAddr() const;
-
-private:
-    Octets octets;
-    uint16_t port;
-};
-
-struct IPv6
-{
-    using Groups = std::array<uint16_t, 8>;
-    using sockaddr_t = sockaddr_in6;
-
-public:
-    IPv6(Groups groups, uint16_t port);
-    IPv6(const sockaddr_t &address);
-
-    sockaddr_t ToSockAddr() const;
+    static const int address_family;
 
 private:
     Groups groups;
     uint16_t port;
+
+public:
+    Address(Groups groups, uint16_t port);
+    Address(const sockaddr_t &address);
+
+    bool operator==(const Address &other) const;
+
+    sockaddr_t ToSockAddr() const;
 };
+
+using IPv4 = Address<sockaddr_in, uint8_t, 4>;
+using IPv6 = Address<sockaddr_in6, uint16_t, 8>;
 
 } // namespace rn

@@ -1,5 +1,6 @@
 #include "../include/rnlib/address.h"
 
+#include <algorithm>
 #include <cstring>
 
 #ifdef _WIN32
@@ -11,49 +12,46 @@
 
 using namespace rn;
 
-IPv4::IPv4(Octets octets, uint16_t port)
+template <typename T, typename GROUP_T, size_t V>
+Address<T, GROUP_T, V>::Address(Groups groups, uint16_t port)
 {
-    *(uint16_t *)&this->octets[0] = htonl(*(uint16_t *)&octets[2]);
-    *(uint16_t *)&this->octets[2] = htons(*(uint16_t *)&octets[0]);
-    this->port = htons(port);
-}
-
-IPv4::IPv4(const sockaddr_in &addr)
-{
-    memcpy(octets.data(), &addr.sin_addr.s_addr, sizeof(octets));
-    port = addr.sin_port;
-}
-
-sockaddr_in IPv4::ToSockAddr() const
-{
-    sockaddr_in addr = { .sin_family = AF_INET };
-    memcpy(&addr.sin_addr.s_addr, octets.data(), sizeof(octets));
-    addr.sin_port = port;
-
-    return addr;
-}
-
-IPv6::IPv6(Groups groups, uint16_t port)
-{
-    for (int i = 0; i < 8; ++i)
+    if constexpr (std::is_same<GROUP_T, uint16_t>::value)
     {
-        this->groups[i] = htons(groups[7 - i]);
+        std::transform(groups.begin(), groups.end(), groups.begin(), htons);
     }
 
+    std::reverse(groups.begin(), groups.end());
+    this->groups = groups;
     this->port = htons(port);
 }
 
-IPv6::IPv6(const sockaddr_in6 &addr)
+template <typename T, typename U, size_t V>
+bool Address<T, U, V>::operator==(const Address &other) const
 {
-    memcpy(groups.data(), &addr.sin6_addr.u.Word, sizeof(groups));
-    port = addr.sin6_port;
+    return this->groups == other.groups && this->port == other.port;
 }
 
-sockaddr_in6 IPv6::ToSockAddr() const
-{
-    struct sockaddr_in6 addr = { .sin6_family = AF_INET6 };
-    memcpy(&addr.sin6_addr.u.Word, groups.data(), sizeof(groups));
-    addr.sin6_port = port;
+#define SPECIALIZE_ADDRESS_T(TYPENAME, ADDR_FAMILY, FAMILY_ATTR, GROUPS_ATTR, PORT_ATTR) \
+                                                                                         \
+    template <>                                                                          \
+    const int TYPENAME::address_family = ADDR_FAMILY;                                    \
+                                                                                         \
+    template <>                                                                          \
+    TYPENAME::Address(const TYPENAME::sockaddr_t &addr)                                  \
+    {                                                                                    \
+        memcpy(groups.data(), &addr.GROUPS_ATTR, sizeof(groups));                        \
+        port = addr.PORT_ATTR;                                                           \
+    }                                                                                    \
+                                                                                         \
+    template <>                                                                          \
+    TYPENAME::sockaddr_t TYPENAME::ToSockAddr() const                                    \
+    {                                                                                    \
+        TYPENAME::sockaddr_t addr = { .FAMILY_ATTR = address_family };                   \
+        memcpy(&addr.GROUPS_ATTR, groups.data(), sizeof(groups));                        \
+        addr.PORT_ATTR = port;                                                           \
+                                                                                         \
+        return addr;                                                                     \
+    }
 
-    return addr;
-}
+SPECIALIZE_ADDRESS_T(IPv4, AF_INET, sin_family, sin_addr.s_addr, sin_port);
+SPECIALIZE_ADDRESS_T(IPv6, AF_INET6, sin6_family, sin6_addr.u.Word, sin6_port);
