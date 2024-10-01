@@ -1,5 +1,7 @@
 #include "../include/rnlib/connection.h"
 
+#include "../include/rnlib/handshake.h"
+
 #include <ctime>
 
 #ifdef _WIN32
@@ -7,138 +9,195 @@
     #define SODIUM_EXPORT
 #endif
 
-#include <checksum.h>
 #include <sodium.h>
 
 using namespace rn;
 
-ReadAuthenticatedPacketResult AuthenticatedPacketReader::ReadPacket(
-        const SecurePacketBuffer &buff)
+template <typename T, typename BUFFER_T, typename V, typename W, typename X>
+ReadPacketResult Connection<T, BUFFER_T, V, W, X>::ReadPacket(_Inout_ BUFFER_T &packet)
 {
-    auto next_sequence = this->sequence << buff.header.sequence;
+    ReadPacketResult read_result = reader.ReadPacket(handshake, packet);
+    if (read_result == ReadPacketResult::ACCEPT)
+    {
+        HandshakeStatus handshake_status = handshake.ReadPacket(packet);
+        if (handshake_status == HandshakeStatus::CONNECTED)
+        {
+            return ReadPacketResult::ACCEPT;
+        }
+
+        return ReadPacketResult::IGNORE;
+    }
+
+    return read_result;
+}
+
+template <typename T, typename BUFFER_T, typename V, typename W, typename X>
+WritePacketResult Connection<T, BUFFER_T, V, W, X>::WritePacket(_Inout_ BUFFER_T &packet)
+{
+    return writer.WritePacket(handshake, packet);
+}
+
+uint16_t PacketSequence::operator++()
+{
+    ++number;
+
+    uint16_t overflow_mask = -uint16_t(number == UINT16_MAX);
+
+    // increment generation on overflow, increment by 0 otherwise
+    generation += overflow_mask & 1;
+
+    // reset number to 0 on overflow, keep as is otherwise
+    number -= overflow_mask & number;
+
+    return number;
+}
+
+std::optional<PacketSequence> PacketSequence::operator<<(uint16_t number)
+{
+    if (number >= this->number)
+    {
+        if (number - this->number < 1'024)
+        {
+            return PacketSequence { number, this->generation };
+        }
+    }
+
+    if (this->number - number > 32'768)
+    {
+        return PacketSequence { number, uint16_t(this->generation + 1) };
+    }
+
+    return std::nullopt;
+}
+
+ReadPacketResult AuthenticatedPacketReader::ReadPacket(
+        const SecureHandshake &handshake, const SecurePacketBuffer &buffer)
+{
+    auto next_sequence = this->sequence << buffer.header.sequence;
     if (!next_sequence.has_value())
     {
-        return ReadAuthenticatedPacketResult::REJECT;
+        return ReadPacketResult::ERR_SEQUENCE;
     }
 
-    auto key = master_key.DeriveSingleUse(context, next_sequence->nonce);
+    auto key = master_key.DeriveSingleUse(handshake.data, next_sequence->nonce);
     if (!key.has_value())
     {
-        return ReadAuthenticatedPacketResult::FAILURE_CONTEXT;
+        return ReadPacketResult::ERR_CONTEXT;
     }
 
-    if (crypto_onetimeauth_verify(buff.auth, buff.header, buff.meta.byte_size, *key) != 0)
+    size_t length = buffer.byte_size();
+    if (crypto_onetimeauth_verify(buffer.tag, buffer.header, length, *key) != 0)
     {
-        return ReadAuthenticatedPacketResult::FAILURE_AUTHENTICATE;
+        return ReadPacketResult::ERR_VERIFY;
     }
 
     sequence = *next_sequence;
     idle_since = time(0) % UINT8_MAX;
-    return ReadAuthenticatedPacketResult::ACCEPT;
+    return ReadPacketResult::ACCEPT;
 }
 
-WriteAuthenticatedPacketResult AuthenticatedPacketWriter::WritePacket(
-        _Inout_ SecurePacketBuffer &buff)
+WritePacketResult AuthenticatedPacketWriter::WritePacket(
+        const SecureHandshake &handshake, _Inout_ SecurePacketBuffer &buffer)
 {
-    buff.header.sequence = ++sequence;
-    auto key = master_key.DeriveSingleUse(context, sequence.nonce);
+    buffer.header.sequence = ++sequence;
+    auto key = master_key.DeriveSingleUse(handshake.data, sequence.nonce);
     if (!key.has_value())
     {
-        return WriteAuthenticatedPacketResult::FAILURE_CONTEXT;
+        return WritePacketResult::ERR_CONTEXT;
     }
 
-    if (crypto_onetimeauth(buff.auth, buff.header, buff.meta.byte_size, *key) != 0)
+    size_t length = buffer.byte_size();
+    if (crypto_onetimeauth(buffer.tag, buffer.header, length, *key) != 0)
     {
-        return WriteAuthenticatedPacketResult::FAILURE_AUTHENTICATE;
+        return WritePacketResult::ERR_AUTHENTICATE;
     }
 
+    // TODO sequence might be incremented if returned earlier
     idle_since = time(0) % UINT8_MAX;
-    return WriteAuthenticatedPacketResult::SUCCESS;
+    return WritePacketResult::SUCCESS;
 }
 
-ReadEncryptedPacketResult EncryptedPacketReader::ReadPacket(
-        _Inout_ SecurePacketBuffer &buff)
+ReadPacketResult EncryptedPacketReader::ReadPacket(
+        const SecureHandshake &handshake, _Inout_ SecurePacketBuffer &buff)
 {
     auto next_sequence = this->sequence << buff.header.sequence;
     if (!next_sequence.has_value())
     {
-        return ReadEncryptedPacketResult::REJECT;
+        return ReadPacketResult::ERR_SEQUENCE;
     }
 
     static NonceBuffer nonce;
     nonce = next_sequence->nonce;
 
-    size_t size = buff.meta.byte_size;
-    if (crypto_box_open_easy_afternm(buff.header, buff.auth, size, nonce, key) != 0)
+    size_t length = buff.byte_size();
+    if (crypto_box_open_easy_afternm(buff.header, buff.tag, length, nonce, key) != 0)
     {
-        return ReadEncryptedPacketResult::FAILURE_DECRYPT;
+        return ReadPacketResult::ERR_VERIFY;
     }
 
     sequence = *next_sequence;
     idle_since = time(0) % UINT8_MAX;
-    return ReadEncryptedPacketResult::ACCEPT;
+    return ReadPacketResult::ACCEPT;
 }
 
-WriteEncryptedPacketResult EncryptedPacketWriter::WritePacket(
-        _Inout_ SecurePacketBuffer &buff)
+WritePacketResult EncryptedPacketWriter::WritePacket(
+        const SecureHandshake &handshake, _Inout_ SecurePacketBuffer &buff)
 {
     buff.header.sequence = ++sequence;
 
     static NonceBuffer nonce;
     nonce = sequence.nonce;
 
-    size_t size = buff.meta.byte_size;
-    if (crypto_box_easy_afternm(buff.auth, buff.header, size, nonce, key) != 0)
+    size_t length = buff.byte_size();
+    if (crypto_box_easy_afternm(buff.tag, buff.header, length, nonce, key) != 0)
     {
-        return WriteEncryptedPacketResult::FAILURE_ENCRYPT;
+        return WritePacketResult::ERR_AUTHENTICATE;
     }
 
     idle_since = time(0) % UINT8_MAX;
-    return WriteEncryptedPacketResult::SUCCESS;
+    return WritePacketResult::SUCCESS;
 }
 
-ReadInsecurePacketResult InsecurePacketReader::ReadPacket(
-        const InsecurePacketBuffer &buff)
+ReadPacketResult InsecurePacketReader::ReadPacket(
+        const InsecureHandshake &handshake, const InsecurePacketBuffer &buff)
 {
-    // TODO check buff.checksum.salt_lower
-    if (buff.checksum.salt_upper != salt)
+    if (buff.tag.salt != handshake.data)
     {
-        return ReadInsecurePacketResult::FAILURE_CONTEXT;
+        return ReadPacketResult::ERR_CONTEXT;
     }
 
     auto next_sequence = this->sequence << buff.header.sequence;
     if (!next_sequence.has_value())
     {
-        return ReadInsecurePacketResult::REJECT;
+        return ReadPacketResult::ERR_SEQUENCE;
     }
 
-    uint16_t crc16 = crc_16(buff.header, buff.meta.byte_size);
-    if (buff.checksum.crc16 != crc16)
-    {
-        return ReadInsecurePacketResult::FAILURE_CHECKSUM;
-    }
+    // TODO remove
+    // uint16_t checksum = crc_16(buff.header, buff.byte_size());
+    // if (buff.tag.crc16 != checksum)
+    // {
+    //     return ReadPacketResult::ERR_VERIFY;
+    // }
 
     sequence = *next_sequence;
     idle_since = time(0) % UINT8_MAX;
-    return ReadInsecurePacketResult::ACCEPT;
+    return ReadPacketResult::ACCEPT;
 }
 
-WriteInsecurePacketResult InsecurePacketWriter::WritePacket(
-        _Inout_ InsecurePacketBuffer &buff)
+// TODO remove
+// WritePacketResult InsecurePacketWriter::WritePacket(_Inout_ InsecurePacketBuffer &buff)
+// {
+//     buff.header.sequence = ++sequence;
+//     buff.tag.crc16 = crc_16(buff.header, buff.byte_size());
+
+//     return TagPacket(buff);
+// }
+
+WritePacketResult InsecurePacketWriter::WritePacket(
+        const InsecureHandshake &handshake, _Inout_ InsecurePacketBuffer &buff)
 {
-    buff.header.sequence = ++sequence;
-
-    buff.checksum.crc16 = crc_16(buff.header, buff.meta.byte_size);
-
-    return TagPacket(buff);
-}
-
-WriteInsecurePacketResult InsecurePacketWriter::TagPacket(
-        _Inout_ InsecurePacketBuffer &buff)
-{
-    // TODO set buff.checksum.salt_lower
-    buff.checksum.salt_upper = salt;
+    buff.tag.salt = handshake.data;
 
     idle_since = time(0) % UINT8_MAX;
-    return WriteInsecurePacketResult::SUCCESS;
+    return WritePacketResult::SUCCESS;
 }

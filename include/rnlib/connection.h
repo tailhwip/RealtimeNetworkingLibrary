@@ -1,55 +1,119 @@
 #pragma once
 
 #include "cryptography.h"
+#include "handshake.h"
 #include "packet.h"
 
-#include <cstdint>
+#include <optional>
 
 namespace rn
 {
 
-enum class ConnectionState
+enum class ReadPacketResult
 {
-    DISCONNECTED,
-    CONNECTING,
-    CONNECTED,
+    ACCEPT,
+    IGNORE,
+    ERR_SEQUENCE,
+    ERR_CONTEXT,
+    ERR_VERIFY,
+};
+
+enum class WritePacketResult
+{
+    SUCCESS,
+    ERR_CONTEXT,
+    ERR_AUTHENTICATE,
+};
+
+template <
+    typename ADDRESS_T,
+    typename BUFFER_T,
+    typename READER_T,
+    typename WRITER_T,
+    typename HANDSHAKE_T>
+class Connection
+{
+public:
+    using buffer_t = BUFFER_T;
+
+private:
+    ADDRESS_T address;
+    READER_T reader;
+    WRITER_T writer;
+    HANDSHAKE_T handshake;
+
+public:
+    Connection(const ADDRESS_T &address, const void *data);
+
+    inline const ADDRESS_T &GetAddress() const { return address; }
+
+    ReadPacketResult ReadPacket(_Inout_ buffer_t &packet);
+    WritePacketResult WritePacket(_Inout_ buffer_t &packet);
+};
+
+struct PacketSequence
+{
+    union
+    {
+        struct
+        {
+            uint16_t generation;
+            uint16_t number;
+        };
+
+        /**
+         * Secure packets require a unique nonce for each packet created during
+         * a single session. These need not be private, thus this union combines
+         * the sequence number and generation to create an incrementing sequence
+         * sufficiently large for most, if not all, use cases.
+         *
+         * Technically, this limits a secure session to 2^32 - 1 packets each
+         * way before their cryptographic integrity breaks.
+         */
+        uint32_t nonce;
+    };
+
+    /**
+     * Increments this sequence by 1 and increments the generation if this
+     * number has reached its maximum value.
+     */
+    uint16_t operator++();
+
+    /**
+     * Attempts to merge the given number into this sequence, returning
+     * std::nullopt if it is too out of sync with this number.
+     */
+    std::optional<PacketSequence> operator<<(uint16_t number);
 };
 
 class AuthenticatedPacketReader
 {
+private:
     KeyBuffer master_key;
-    uint64_t context;
     PacketSequence sequence;
     uint8_t idle_since;
 
-    enum class ReadAuthenticatedPacketResult ReadPacket(
-        const SecurePacketBuffer &packet);
-};
+public:
+    AuthenticatedPacketReader(const KeyBuffer &master_key);
 
-enum class ReadAuthenticatedPacketResult
-{
-    ACCEPT,
-    REJECT,
-    FAILURE_CONTEXT,
-    FAILURE_AUTHENTICATE,
+    ReadPacketResult ReadPacket(
+        const SecureHandshake &handshake,
+        const SecurePacketBuffer &packet);
 };
 
 class AuthenticatedPacketWriter
 {
+private:
     KeyBuffer master_key;
-    uint64_t context;
     PacketSequence sequence;
     uint8_t idle_since;
 
-    enum class WriteAuthenticatedPacketResult WritePacket(
-        _Inout_ SecurePacketBuffer &packet);
-};
+public:
+    AuthenticatedPacketWriter(const KeyBuffer &master_key);
 
-enum class WriteAuthenticatedPacketResult
-{
-    SUCCESS,
-    FAILURE_CONTEXT,
-    FAILURE_AUTHENTICATE,
+    WritePacketResult WritePacket(
+        const SecureHandshake &handshake,
+        _Inout_ SecurePacketBuffer &packet);
 };
 
 /**
@@ -62,47 +126,38 @@ enum class WriteAuthenticatedPacketResult
  * Authenticated connections are intended to be used for high-throughput traffic
  * that doesn't require privacy but needs to be protected from MITM attacks.
  */
-template <typename IPvT>
-class AuthenticatedConnection
-{
-    IPvT address;
-    AuthenticatedPacketReader reader;
-    AuthenticatedPacketWriter writer;
-};
+template <typename ADDRESS_T>
+using AuthenticatedConnection = Connection<
+    ADDRESS_T,
+    SecurePacketBuffer,
+    AuthenticatedPacketReader,
+    AuthenticatedPacketWriter,
+    SecureHandshake>;
 
 class EncryptedPacketReader
 {
+private:
     KeyBuffer key;
-    uint64_t context;
     PacketSequence sequence;
     uint8_t idle_since;
 
-    enum class ReadEncryptedPacketResult ReadPacket(
+public:
+    ReadPacketResult ReadPacket(
+        const SecureHandshake &handshake,
         _Inout_ SecurePacketBuffer &packet);
-};
-
-enum class ReadEncryptedPacketResult
-{
-    ACCEPT,
-    REJECT,
-    FAILURE_DECRYPT,
 };
 
 class EncryptedPacketWriter
 {
+private:
     KeyBuffer key;
-    uint64_t context;
     PacketSequence sequence;
     uint8_t idle_since;
 
-    enum class WriteEncryptedPacketResult WritePacket(
+public:
+    WritePacketResult WritePacket(
+        const SecureHandshake &handshake,
         _Inout_ SecurePacketBuffer &packet);
-};
-
-enum class WriteEncryptedPacketResult
-{
-    SUCCESS,
-    FAILURE_ENCRYPT,
 };
 
 /**
@@ -117,61 +172,50 @@ enum class WriteEncryptedPacketResult
  *
  * TODO impl packet acknowledgement and replay
  */
-template <typename IPvT>
-class EncryptedConnection
-{
-    IPvT address;
-    EncryptedPacketReader reader;
-    EncryptedPacketWriter writer;
-};
+template <typename ADDRESS_T>
+using EncryptedConnection = Connection<
+    ADDRESS_T,
+    SecurePacketBuffer,
+    EncryptedPacketReader,
+    EncryptedPacketWriter,
+    SecureHandshake>;
 
 class InsecurePacketReader
 {
-    uint32_t salt;
+private:
     PacketSequence sequence;
     uint8_t idle_since;
 
-    enum class ReadInsecurePacketResult ReadPacket(
+public:
+    ReadPacketResult ReadPacket(
+        const InsecureHandshake &handshake,
         const InsecurePacketBuffer &packet);
-};
-
-enum class ReadInsecurePacketResult
-{
-    ACCEPT,
-    REJECT,
-    FAILURE_CONTEXT,
-    FAILURE_CHECKSUM,
 };
 
 class InsecurePacketWriter
 {
-    uint32_t salt;
+private:
     PacketSequence sequence;
     uint8_t idle_since;
 
-    enum class WriteInsecurePacketResult WritePacket(
+public:
+    WritePacketResult WritePacket(
+        const InsecureHandshake &handshake,
         _Inout_ InsecurePacketBuffer &packet);
-
-    enum class WriteInsecurePacketResult TagPacket(
-        _Inout_ InsecurePacketBuffer &packet);
-};
-
-enum class WriteInsecurePacketResult
-{
-    SUCCESS,
 };
 
 /**
  * ! Insecure connections are vulnerable to MITM attacks.
  *
  * Insecure connections solely tag their plain text packets with a previously in
- * the open agreed upon 32 bit salt. This somewhat protects against random
- * impersonation attempts but otherwise leaves the connection completely open to
+ * the open agreed upon 64 bit salt. This reasonably protects against random
+ * impersonation attacks but otherwise leaves the connection completely open to
  * MITM attacks. The salt is renegotiated every 2^16 - 1 packets to provide some
  * level of protection against brute-force attacks.
  *
  * Insecure connections are intended to be used for very high-throughput traffic
- * that doesn't require privacy or protection from MITM attacks.
+ * that doesn't require privacy and can, to a certain degree, tolerate a
+ * vulnerability to MITM attacks.
  *
  * ! This connection type is mostly a 'how fast can it go' case study and is
  * best avoided in production environments.
@@ -181,12 +225,12 @@ enum class WriteInsecurePacketResult
  * recomputation to send an already established packet to another client. It
  * slaps on the next salt and gives it to the socket.
  */
-template <typename IPvT>
-class InsecureConnection
-{
-    IPvT address;
-    InsecurePacketReader reader;
-    InsecurePacketWriter writer;
-};
+template <typename ADDRESS_T>
+using InsecureConnection = Connection<
+    ADDRESS_T,
+    InsecurePacketBuffer,
+    InsecurePacketReader,
+    InsecurePacketWriter,
+    InsecureHandshake>;
 
 } // namespace rn
