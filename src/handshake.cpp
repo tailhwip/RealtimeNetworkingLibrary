@@ -20,7 +20,7 @@ Handshake<T, ARGS_T, V>::Handshake(ARGS_T args)
 template <typename BUFFER_T, typename U, typename V>
 HandshakeStatus Handshake<BUFFER_T, U, V>::ReadPacket(_In_ BUFFER_T &buffer)
 {
-    if (buffer.header.type != RN_PACKET_TYPE_HANDSHAKE)
+    if (buffer.header.type != PACKET_TYPE_HANDSHAKE)
     {
         return stage == HandshakeStage::CONNECTED ? HandshakeStatus::CONNECTED
                                                   : HandshakeStatus::PENDING;
@@ -107,7 +107,7 @@ std::optional<BUFFER_T> Handshake<BUFFER_T, U, V>::WritePacket()
 template <typename BUFFER_T, typename ARGS_T, typename DATA_T>
 BUFFER_T HANDSHAKE_T::ClientHello::Serialize(const ClientHello &message)
 {
-    BUFFER_T buffer(RN_PACKET_TYPE_HANDSHAKE);
+    BUFFER_T buffer(PACKET_TYPE_HANDSHAKE);
 
     auto stage = static_cast<uint8_t>(HandshakeStage::CLIENT_HELLO);
     buffer.SerializeUInt8(stage);
@@ -124,7 +124,7 @@ template <typename BUFFER_T, typename ARGS_T, typename DATA_T>
 std::optional<CLIENT_HELLO_T> HANDSHAKE_T::ClientHello::Deserialize(BUFFER_T &buffer)
 {
     std::optional<ClientHello> message;
-    if (buffer.byte_size() != RN_PACKET_BYTES_MAX)
+    if (buffer.byte_size() != PACKET_BYTES_MAX)
     {
         return std::nullopt;
     }
@@ -142,7 +142,7 @@ std::optional<CLIENT_HELLO_T> HANDSHAKE_T::ClientHello::Deserialize(BUFFER_T &bu
 template <typename BUFFER_T, typename ARGS_T, typename DATA_T>
 BUFFER_T HANDSHAKE_T::ServerChallenge::Serialize(const ServerChallenge &message)
 {
-    BUFFER_T buffer(RN_PACKET_TYPE_HANDSHAKE);
+    BUFFER_T buffer(PACKET_TYPE_HANDSHAKE);
 
     auto stage = static_cast<uint8_t>(HandshakeStage::SERVER_CHALLENGE);
     buffer.SerializeUInt8(stage);
@@ -158,7 +158,7 @@ std::optional<SERVER_CHALLENGE_T> HANDSHAKE_T::ServerChallenge::Deserialize(
         BUFFER_T &buffer)
 {
     std::optional<ServerChallenge> message;
-    if (buffer.byte_size() != RN_PACKET_BYTES_MAX)
+    if (buffer.byte_size() != PACKET_BYTES_MAX)
     {
         return std::nullopt;
     }
@@ -176,7 +176,7 @@ std::optional<SERVER_CHALLENGE_T> HANDSHAKE_T::ServerChallenge::Deserialize(
 template <typename BUFFER_T, typename ARGS_T, typename DATA_T>
 BUFFER_T HANDSHAKE_T::ClientChallenge::Serialize(const ClientChallenge &message)
 {
-    BUFFER_T buffer(RN_PACKET_TYPE_HANDSHAKE);
+    BUFFER_T buffer(PACKET_TYPE_HANDSHAKE);
 
     auto stage = static_cast<uint8_t>(HandshakeStage::CLIENT_CHALLENGE);
     buffer.SerializeUInt8(stage);
@@ -194,7 +194,7 @@ std::optional<CLIENT_CHALLENGE_T> HANDSHAKE_T::ClientChallenge::Deserialize(
         BUFFER_T &buffer)
 {
     std::optional<ClientChallenge> message;
-    if (buffer.byte_size() != RN_PACKET_BYTES_MAX)
+    if (buffer.byte_size() != PACKET_BYTES_MAX)
     {
         return std::nullopt;
     }
@@ -212,7 +212,7 @@ std::optional<CLIENT_CHALLENGE_T> HANDSHAKE_T::ClientChallenge::Deserialize(
 template <typename BUFFER_T, typename ARGS_T, typename DATA_T>
 BUFFER_T HANDSHAKE_T::ServerHello::Serialize(const ServerHello &message)
 {
-    BUFFER_T buffer(RN_PACKET_TYPE_HANDSHAKE);
+    BUFFER_T buffer(PACKET_TYPE_HANDSHAKE);
 
     auto stage = static_cast<uint8_t>(HandshakeStage::SERVER_HELLO);
     buffer.SerializeUInt8(stage);
@@ -226,7 +226,7 @@ template <typename BUFFER_T, typename ARGS_T, typename DATA_T>
 std::optional<SERVER_HELLO_T> HANDSHAKE_T::ServerHello::Deserialize(BUFFER_T &buffer)
 {
     std::optional<ServerHello> message;
-    if (buffer.byte_size() != RN_PACKET_BYTES_MAX)
+    if (buffer.byte_size() != PACKET_BYTES_MAX)
     {
         return std::nullopt;
     }

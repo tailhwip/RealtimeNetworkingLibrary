@@ -7,7 +7,7 @@
 namespace rn
 {
 
-struct KeyBuffer : std::array<uint8_t, 32>
+struct KeyBuffer : std::array<uint64_t, 4>
 {
     inline operator uint8_t *() { return *this; }
     inline operator const uint8_t *() const { return *this; }

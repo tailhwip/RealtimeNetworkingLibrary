@@ -13,7 +13,7 @@ std::optional<KeyBuffer> KeyBuffer::DeriveSingleUse(uint64_t context, uint64_t n
 {
     std::optional<KeyBuffer> result;
     int error = crypto_kdf_derive_from_key(
-            result->data(), result->size(), nonce, (char *)context, *this);
+            result.value(), result->size(), nonce, (char *)context, *this);
 
     return !error ? result : std::nullopt;
 }

@@ -1,30 +1,54 @@
 #pragma once
 
+#include "cryptography.h"
+
 #include <array>
 #include <cstdint>
-#include <optional>
-
-#define RN_PACKET_SIZE_MAX 508
-#define RN_PACKET_TYPE_PROTOCOL UINT8_MAX
-
-#ifndef RN_PROTOCOL_ID
-    #define RN_PROTOCOL_ID 'r' + 'n'
-#endif
 
 namespace rn
 {
 
+#define NET_MTU_BYTES_MIN_IPV4 576
+#define NET_MTU_BYTES_MIN_IPV6 1280
+
+#define UDP_HEADER_BYTES_MIN_IPV4 28
+#define UDP_HEADER_BYTES_MIN_IPV6 48
+
+#define PAYLOAD_BYTES_SAFE_IPV4                                                \
+    NET_MTU_BYTES_MIN_IPV4 - UDP_HEADER_BYTES_MIN_IPV4
+#define PAYLOAD_BYTES_SAFE_IPV6                                                \
+    NET_MTU_BYTES_MIN_IPV6 - UDP_HEADER_BYTES_MIN_IPV6
+
+#ifndef PACKET_BYTES_MAX
+#define PACKET_BYTES_MAX PAYLOAD_BYTES_SAFE_IPV6
+#endif
+
+#define PACKET_TYPE_HANDSHAKE UINT16_MAX
+
 struct PacketMeta
 {
-    _Inout_ uint32_t byte_size   : 9;
-    _Out_ uint32_t connection_id : 23;
+    uint32_t connection_id;
+    uint16_t body_size;
+    uint16_t body_cursor;
+};
+
+struct PacketAuthentication : std::array<uint8_t, 16>
+{
+    inline operator uint8_t *() { return *this; }
+    inline operator const uint8_t *() const { return *this; }
+};
+
+struct PacketVerification
+{
+    uint64_t salt;
 };
 
 struct PacketHeader
 {
-    uint8_t protocol;
-    uint8_t type;
+    uint16_t protocol;
     uint16_t sequence;
+    uint16_t handshake;
+    uint16_t type;
 
     inline operator uint8_t *() { return *this; }
     inline operator const uint8_t *() const { return *this; }
@@ -37,104 +61,53 @@ struct PacketBody : std::array<uint64_t, qwords>
     inline operator const uint8_t *() const { return *this; }
 };
 
-struct PacketAuth : std::array<uint8_t, 16>
-{
-    inline operator uint8_t *() { return *this; }
-    inline operator const uint8_t *() const { return *this; }
-};
-
-struct PacketChecksum
-{
-    uint32_t salt_upper;
-    uint32_t salt_lower : 16;
-    uint32_t crc16      : 16;
-};
-
+template <typename TAG_T>
 class PacketBuffer
 {
 private:
-    uint64_t *body;
-    uint_fast8_t body_size;
-    uint_fast8_t body_cursor;
+    template <typename T, size_t bits>
+    inline void serialize(T data);
 
-    uint64_t scratch;
-    uint_fast8_t scratch_cursor;
+    template <typename T, size_t bits>
+    inline T deserialize();
 
-protected:
-    PacketBuffer(uint64_t *body, uint_fast8_t body_size);
+public:
+    static constexpr size_t header_size = sizeof(TAG_T) + sizeof(PacketHeader);
+    static constexpr size_t body_qwords = (PACKET_BYTES_MAX - header_size) / 8;
+
+    PacketMeta meta;
+    TAG_T tag;
+    PacketHeader header;
+    PacketBody<body_qwords> body;
+
+    PacketBuffer(uint16_t packet_type);
+
+    inline uint8_t *data() { return &tag; }
+    inline const uint8_t *data() const { return &tag; }
 
     template <typename T>
-    inline void serialize(T data, uint_fast8_t bit_count);
+    void SerializeT(T);
 
-public:
-    void serialize_bool(bool);
-    void serialize_uint8(uint8_t);
-    void serialize_uint16(uint16_t);
-    void serialize_uint32(uint32_t);
-    void serialize_uint64(uint64_t);
+    void SerializeBool(bool);
+    void SerializeUInt8(uint8_t); // TODO impl min/max values
+    void SerializeUInt16(uint16_t);
+    void SerializeUInt32(uint32_t);
+    void SerializeUInt64(uint64_t);
+    void SerializeKeyBuffer(const KeyBuffer &);
+    void SerializePadding();
+
+    template <typename T>
+    T DeserializeT();
+
+    bool DeserializeBool();
+    uint8_t DeserializeUInt8();
+    uint16_t DeserializeUInt16();
+    uint32_t DeserializeUInt32();
+    uint64_t DeserializeUInt64();
+    KeyBuffer DeserializeKeyBuffer();
 };
 
-class SecurePacketBuffer : PacketBuffer
-{
-private:
-    static constexpr uint_fast8_t qwords = 61;
-
-public:
-    PacketMeta meta;
-    PacketAuth auth;
-    PacketHeader header;
-    PacketBody<qwords> body;
-
-    SecurePacketBuffer(uint8_t packet_type);
-};
-
-class InsecurePacketBuffer : PacketBuffer
-{
-private:
-    static constexpr uint_fast8_t qwords = 62;
-
-public:
-    PacketMeta meta;
-    PacketChecksum checksum;
-    PacketHeader header;
-    PacketBody<qwords> body;
-
-    InsecurePacketBuffer(uint8_t packet_type);
-};
-
-struct PacketSequence
-{
-    union
-    {
-        struct
-        {
-            uint16_t generation;
-            uint16_t number;
-        };
-
-        /**
-         * Secure packets require a unique nonce for each packet created during
-         * a single session. These need not be private, thus this union combines
-         * the sequence number and generation to create an incrementing sequence
-         * sufficiently large for most, if not all, use cases.
-         *
-         * Technically, this limits a secure session to 2^32 - 1 packets each
-         * way before their cryptographic integrity breaks.
-         */
-        uint32_t nonce;
-    };
-
-    /**
-     * Increments this sequence by 1 and increments the generation if this
-     * number has reached its maximum value.
-     */
-    uint16_t operator++();
-
-    /**
-     * Attempts to merge the given number into this sequence, returning
-     * std::nullopt if it is too out of sync with this number.
-     */
-    std::optional<PacketSequence> operator<<(uint16_t number);
-};
+using SecurePacketBuffer = PacketBuffer<PacketAuthentication>;
+using InsecurePacketBuffer = PacketBuffer<PacketVerification>;
 
 } // namespace rn
