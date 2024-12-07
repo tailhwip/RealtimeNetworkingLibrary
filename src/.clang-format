@@ -5,8 +5,7 @@ BasedOnStyle: Microsoft
 AlignAfterOpenBracket: AlwaysBreak
 AlignEscapedNewlines: Right
 BreakBeforeBraces: Allman
-# BreakTemplateDeclarations: Yes # since Clang 19
-AlwaysBreakTemplateDeclarations: true # remove Clang 19
+BreakTemplateDeclarations: Yes
 
 IncludeBlocks: Regroup
 SortIncludes: CaseSensitive
@@ -26,14 +25,12 @@ InsertBraces: true
 AlignArrayOfStructures: Right
 AlignOperands: DontAlign
 
-# AllowShortCaseExpressionOnASingleLine: true # since Clang 19
+AllowShortCaseExpressionOnASingleLine: true
 AllowShortLambdasOnASingleLine: All
 
-# BreakAfterReturnType: ExceptShortType # since Clang 19
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeColon
 PackConstructorInitializers: NextLine
-# BreakFunctionDefinitionParameters: true # since Clang 19
 
 ContinuationIndentWidth: 8
 IndentCaseLabels: true

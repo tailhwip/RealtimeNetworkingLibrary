@@ -5,8 +5,7 @@ BasedOnStyle: Microsoft
 AlignAfterOpenBracket: AlwaysBreak
 AlignEscapedNewlines: Right
 BreakBeforeBraces: Allman
-# BreakTemplateDeclarations: Yes # since Clang 19
-AlwaysBreakTemplateDeclarations: true # remove Clang 19
+BreakTemplateDeclarations: Yes
 
 IncludeBlocks: Regroup
 SortIncludes: CaseSensitive
@@ -22,9 +21,9 @@ InsertNewlineAtEOF: true
 
 ColumnLimit: 80
 AccessModifierOffset: -4
+BinPackParameters: false
 
 AlignConsecutiveBitFields: AcrossEmptyLines
-BinPackParameters: false
 
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortFunctionsOnASingleLine: All
