@@ -1,57 +1,39 @@
-#pragma once
+#ifndef RN_SOCKET_H
+#define RN_SOCKET_H
 
 #include "address.h"
+#include "util.h"
 
-#include <string>
-
-namespace rn
+#ifdef __cplusplus
+extern "C"
 {
+#endif
 
-template <typename ADDRESS_T>
-class Socket
-{
-private:
-    int handle;
+int rnSocketsInitialize();
+int rnSocketsCleanup();
 
-public:
-    Socket(const ADDRESS_T &bind_address);
-    Socket(const Socket &) = delete;
-    Socket(Socket &&);
-    ~Socket();
+#define RN_SOCKET_DECL(IP)                                                     \
+    typedef struct RnSocket##IP RnSocket##IP;                                  \
+                                                                               \
+    int rnSocketOpen(const RnAddress##IP *host, OUT RnSocket##IP **handle);    \
+                                                                               \
+    int rnSocketClose(IN RnSocket##IP *handle);                                \
+                                                                               \
+    int rnSocketSendData(                                                      \
+          const RnSocket##IP *socket, const RnAddress##IP *address,            \
+          const uint8_t *data, size_t data_size);                              \
+                                                                               \
+    int rnSocketReceiveData(                                                   \
+          const RnSocket##IP *socket, OUT RnAddress##IP *address,              \
+          OUT uint8_t *data, OUT size_t *data_size);
 
-    void SendData(
-        const ADDRESS_T &to_address,
-        const char *data,
-        size_t data_bytes);
+RN_SOCKET_DECL(IPv4)
+RN_SOCKET_DECL(IPv6)
 
-    void ReceiveData(
-        _Out_ ADDRESS_T &from_address,
-        _Out_ char *buffer,
-        _Inout_ size_t &buffer_bytes);
-};
+#undef RN_SOCKET_DECL
 
-class SocketsInitializer
-{
-public:
-    SocketsInitializer();
-    SocketsInitializer(const SocketsInitializer &) = delete;
-    SocketsInitializer(SocketsInitializer &&) = delete;
-    ~SocketsInitializer();
-};
+#ifdef __cplusplus
+}
+#endif
 
-class SocketException
-{
-private:
-    int code;
-    std::string message;
-    std::string location;
-
-public:
-    SocketException(int code, std::string message, std::string file, int line);
-
-    inline int error() const noexcept { return code; }
-    inline const std::string &what() const noexcept { return message; }
-    inline const std::string &where() const noexcept { return location; }
-};
-
-} // namespace rn
+#endif // RN_SOCKET_H

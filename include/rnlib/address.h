@@ -1,37 +1,28 @@
-#pragma once
+#ifndef RN_ADDRESS_H
+#define RN_ADDRESS_H
 
-#include <array>
-#include <cstdint>
-
-struct sockaddr_in;
-struct sockaddr_in6;
-
-namespace rn
+#ifdef __cplusplus
+extern "C"
 {
+#endif
 
-template <typename SOCKADDR_T, typename GROUP_T, size_t GROUPS_SIZE>
-class Address
+struct RnAddressIPv4
 {
-public:
-    using Groups = std::array<GROUP_T, GROUPS_SIZE>;
-    using sockaddr_t = SOCKADDR_T;
-
-    static const int address_family;
-
-private:
-    Groups groups;
+    uint8_t octets[4];
     uint16_t port;
-
-public:
-    Address(Groups groups, uint16_t port);
-    Address(const sockaddr_t &address);
-
-    bool operator==(const Address &other) const;
-
-    sockaddr_t ToSockAddr() const;
 };
 
-using IPv4 = Address<sockaddr_in, uint8_t, 4>;
-using IPv6 = Address<sockaddr_in6, uint16_t, 8>;
+struct RnAddressIPv6
+{
+    uint16_t groups[8];
+    uint16_t port;
+};
 
-} // namespace rn
+typedef struct RnAddressIPv4 RnAddressIPv4;
+typedef struct RnAddressIPv6 RnAddressIPv6;
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // RN_ADDRESS_H

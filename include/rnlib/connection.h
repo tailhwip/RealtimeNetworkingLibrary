@@ -1,120 +1,42 @@
-#pragma once
+#ifndef RN_CONNECTION_H
+#define RN_CONNECTION_H
 
 #include "cryptography.h"
 #include "handshake.h"
 #include "packet.h"
 
-#include <optional>
-
-namespace rn
+#ifdef __cplusplus
+extern "C"
 {
+#endif
 
-enum class ReadPacketResult
+enum RnConnectionReadResult
 {
-    ACCEPT,
-    IGNORE,
-    ERR_SEQUENCE,
-    ERR_CONTEXT,
-    ERR_VERIFY,
+    RN_CONNECTION_READ_AVAILABLE,
+    RN_CONNECTION_READ_EMPTY,
+    RN_CONNECTION_READ_HANDSHAKE,
+    RN_CONNECTION_READ_ERROR_SEQUENCE,
+    RN_CONNECTION_READ_ERROR_CONTEXT,
+    RN_CONNECTION_READ_ERROR_VERIFY,
 };
 
-enum class WritePacketResult
+enum RnConnectionWriteResult
 {
-    SUCCESS,
-    ERR_CONTEXT,
-    ERR_AUTHENTICATE,
+    RN_CONNECTION_WRITE_OK,
+    RN_CONNECTION_WRITE_ERROR_CONTEXT,
+    RN_CONNECTION_WRITE_ERROR_AUTHENTICATE,
 };
 
-template <
-    typename ADDRESS_T,
-    typename BUFFER_T,
-    typename READER_T,
-    typename WRITER_T,
-    typename HANDSHAKE_T>
-class Connection
-{
-public:
-    using buffer_t = BUFFER_T;
-
-private:
-    ADDRESS_T address;
-    READER_T reader;
-    WRITER_T writer;
-    HANDSHAKE_T handshake;
-
-public:
-    Connection(const ADDRESS_T &address, const void *data);
-
-    inline const ADDRESS_T &GetAddress() const { return address; }
-
-    ReadPacketResult ReadPacket(_Inout_ buffer_t &packet);
-    WritePacketResult WritePacket(_Inout_ buffer_t &packet);
-};
-
-struct PacketSequence
-{
-    union
-    {
-        struct
-        {
-            uint16_t generation;
-            uint16_t number;
-        };
-
-        /**
-         * Secure packets require a unique nonce for each packet created during
-         * a single session. These need not be private, thus this union combines
-         * the sequence number and generation to create an incrementing sequence
-         * sufficiently large for most, if not all, use cases.
-         *
-         * Technically, this limits a secure session to 2^32 - 1 packets each
-         * way before their cryptographic integrity breaks.
-         */
-        uint32_t nonce;
-    };
-
-    /**
-     * Increments this sequence by 1 and increments the generation if this
-     * number has reached its maximum value.
-     */
-    uint16_t operator++();
-
-    /**
-     * Attempts to merge the given number into this sequence, returning
-     * std::nullopt if it is too out of sync with this number.
-     */
-    std::optional<PacketSequence> operator<<(uint16_t number);
-};
-
-class AuthenticatedPacketReader
-{
-private:
-    KeyBuffer master_key;
-    PacketSequence sequence;
-    uint8_t idle_since;
-
-public:
-    AuthenticatedPacketReader(const KeyBuffer &master_key);
-
-    ReadPacketResult ReadPacket(
-        const SecureHandshake &handshake,
-        const SecurePacketBuffer &packet);
-};
-
-class AuthenticatedPacketWriter
-{
-private:
-    KeyBuffer master_key;
-    PacketSequence sequence;
-    uint8_t idle_since;
-
-public:
-    AuthenticatedPacketWriter(const KeyBuffer &master_key);
-
-    WritePacketResult WritePacket(
-        const SecureHandshake &handshake,
-        _Inout_ SecurePacketBuffer &packet);
-};
+#define RN_CONNECTION_DECL(TYPE, IP, BUFFER)                                                       \
+    typedef struct RnConnection##TYPE##IP RnConnection##TYPE##IP;                                  \
+                                                                                                   \
+    void rnConnectionEstablishHandshake(RnConnection##TYPE##IP *connection);                       \
+                                                                                                   \
+    enum RnConnectionReadResult rnConnectionReadPacket(                                            \
+          RnConnection##TYPE##IP *connection, RnPacketBuffer##BUFFER *buffer);                     \
+                                                                                                   \
+    enum RnConnectionWriteResult rnConnectionWritePacket(                                          \
+          RnConnection##TYPE##IP *connection, RnPacketBuffer##BUFFER *buffer);
 
 /**
  * Authenticated connections tag their otherwise plain text packets with 16 byte
@@ -126,39 +48,8 @@ public:
  * Authenticated connections are intended to be used for high-throughput traffic
  * that doesn't require privacy but needs to be protected from MITM attacks.
  */
-template <typename ADDRESS_T>
-using AuthenticatedConnection = Connection<
-    ADDRESS_T,
-    SecurePacketBuffer,
-    AuthenticatedPacketReader,
-    AuthenticatedPacketWriter,
-    SecureHandshake>;
-
-class EncryptedPacketReader
-{
-private:
-    KeyBuffer key;
-    PacketSequence sequence;
-    uint8_t idle_since;
-
-public:
-    ReadPacketResult ReadPacket(
-        const SecureHandshake &handshake,
-        _Inout_ SecurePacketBuffer &packet);
-};
-
-class EncryptedPacketWriter
-{
-private:
-    KeyBuffer key;
-    PacketSequence sequence;
-    uint8_t idle_since;
-
-public:
-    WritePacketResult WritePacket(
-        const SecureHandshake &handshake,
-        _Inout_ SecurePacketBuffer &packet);
-};
+RN_CONNECTION_DECL(Authenticated, IPv4, Secure)
+RN_CONNECTION_DECL(Authenticated, IPv6, Secure)
 
 /**
  * Encrypted connections completely obfuscate their packets using XSalsa20
@@ -172,37 +63,8 @@ public:
  *
  * TODO impl packet acknowledgement and replay
  */
-template <typename ADDRESS_T>
-using EncryptedConnection = Connection<
-    ADDRESS_T,
-    SecurePacketBuffer,
-    EncryptedPacketReader,
-    EncryptedPacketWriter,
-    SecureHandshake>;
-
-class InsecurePacketReader
-{
-private:
-    PacketSequence sequence;
-    uint8_t idle_since;
-
-public:
-    ReadPacketResult ReadPacket(
-        const InsecureHandshake &handshake,
-        const InsecurePacketBuffer &packet);
-};
-
-class InsecurePacketWriter
-{
-private:
-    PacketSequence sequence;
-    uint8_t idle_since;
-
-public:
-    WritePacketResult WritePacket(
-        const InsecureHandshake &handshake,
-        _Inout_ InsecurePacketBuffer &packet);
-};
+RN_CONNECTION_DECL(Encrypted, IPv4, Secure)
+RN_CONNECTION_DECL(Encrypted, IPv6, Secure)
 
 /**
  * ! Insecure connections are vulnerable to MITM attacks.
@@ -225,12 +87,13 @@ public:
  * recomputation to send an already established packet to another client. It
  * slaps on the next salt and gives it to the socket.
  */
-template <typename ADDRESS_T>
-using InsecureConnection = Connection<
-    ADDRESS_T,
-    InsecurePacketBuffer,
-    InsecurePacketReader,
-    InsecurePacketWriter,
-    InsecureHandshake>;
+RN_CONNECTION_DECL(Insecure, IPv4, Insecure)
+RN_CONNECTION_DECL(Insecure, IPv6, Insecure)
 
-} // namespace rn
+#undef RN_CONNECTION_DECL
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // RN_CONNECTION_H

@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.21)
 include(FetchContent)
 
 project(rnlib)
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED TRUE)
 
 add_library(rnlib)
 
@@ -29,7 +29,7 @@ if(WIN32)
     target_link_libraries(rnlib PRIVATE wsock32)
 endif()
 
-# Dependencies
+# Vendor
 set(PROJECT_VENDOR_DIR "${CMAKE_SOURCE_DIR}/vendor")
 
 if(WIN32)

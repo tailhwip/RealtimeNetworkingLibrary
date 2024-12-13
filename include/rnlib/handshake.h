@@ -1,74 +1,51 @@
-#pragma once
+#ifndef RN_HANDSHAKE_H
+#define RN_HANDSHAKE_H
 
 #include "cryptography.h"
 #include "packet.h"
 
-#include <optional>
+#include <bool.h>
+#include <stdint.h>
 
-namespace rn
-{
+#define RN_HANDSHAKE_PACKET_TYPE UINT16_MAX
 
-enum class HandshakeStatus
+#ifdef __cplusplus
+extern "C"
 {
-    CONNECTED,
-    PENDING,
+#endif
+
+enum RnHandshakeStep
+{
+    RN_HANDSHAKE_DISCONNECTED,
+
+    RN_HANDSHAKE_CLIENT_CONNECT,
+    RN_HANDSHAKE_SERVER_CHALLENGE,
+    RN_HANDSHAKE_CLIENT_RESPONSE,
+    RN_HANDSHAKE_SERVER_CONNECTED,
+
+    RN_HANDSHAKE_CONNECTED,
 };
 
-enum class HandshakeStage
-{
-    DISCONNECTED,
-    CLIENT_HELLO,
-    SERVER_CHALLENGE,
-    CLIENT_CHALLENGE,
-    SERVER_HELLO,
-    CONNECTED,
-};
+#define RN_HANDSHAKE_DECL(TYPE)                                                \
+    typedef struct RnHandshake##TYPE RnHandshake##TYPE;                        \
+                                                                               \
+    RnHandshake##TYPE rnHandshakeCreate##TYPE();                               \
+                                                                               \
+    bool rnHandshakeReadPacketClient(                                          \
+          RnHandshake##TYPE *handshake, RnPacketBuffer##TYPE *buffer);         \
+    bool rnHandshakeWritePacketClient(                                         \
+          RnHandshake##TYPE *handshake, OUT RnPacketBuffer##TYPE *buffer);     \
+                                                                               \
+    bool rnHandshakeReadPacketServer(                                          \
+          RnHandshake##TYPE *handshake, RnPacketBuffer##TYPE *buffer);         \
+    bool rnHandshakeWritePacketServer(                                         \
+          RnHandshake##TYPE *handshake, OUT RnPacketBuffer##TYPE *buffer);
 
-template <typename BUFFER_T, typename ARGS_T, typename DATA_T>
-class Handshake
-{
-public:
-    HandshakeStage stage;
-    ARGS_T args;
-    DATA_T data;
+RN_HANDSHAKE_DECL(Secure)
+RN_HANDSHAKE_DECL(Insecure)
 
-    Handshake(ARGS_T args);
+#ifdef __cplusplus
+}
+#endif
 
-    HandshakeStatus ReadPacket(_In_ BUFFER_T &buffer);
-    std::optional<BUFFER_T> WritePacket();
-
-    struct ClientHello
-    {
-        ARGS_T args;
-
-        static BUFFER_T Serialize(const ClientHello &);
-        static std::optional<ClientHello> Deserialize(BUFFER_T &);
-    };
-
-    struct ServerChallenge
-    {
-        DATA_T data;
-
-        static BUFFER_T Serialize(const ServerChallenge &);
-        static std::optional<ServerChallenge> Deserialize(BUFFER_T &);
-    };
-
-    struct ClientChallenge
-    {
-        DATA_T data;
-
-        static BUFFER_T Serialize(const ClientChallenge &);
-        static std::optional<ClientChallenge> Deserialize(BUFFER_T &);
-    };
-
-    struct ServerHello
-    {
-        static BUFFER_T Serialize(const ServerHello &);
-        static std::optional<ServerHello> Deserialize(BUFFER_T &);
-    };
-};
-
-using SecureHandshake = Handshake<SecurePacketBuffer, KeyBuffer, uint64_t>;
-using InsecureHandshake = Handshake<InsecurePacketBuffer, uint64_t, uint64_t>;
-
-} // namespace rn
+#endif // RN_HANDSHAKE_H
