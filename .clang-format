@@ -1,34 +1,50 @@
-# Shared formatting
-
 BasedOnStyle: Microsoft
+ColumnLimit: 100
+ContinuationIndentWidth: 6
+
+#BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBraces: Custom
+BreakBeforeTernaryOperators: true
+
+BraceWrapping:
+  AfterCaseLabel: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterExternBlock: true
+  AfterFunction: true
+  AfterStruct: true
+  AfterUnion: true
+  BeforeElse: true
+  BeforeWhile: true
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+
+#BinPackArguments: false
+#BinPackParameters: false
+#AllowAllArgumentsOnNextLine: false
+#AllowAllParametersOfDeclarationOnNextLine: false
 
 AlignAfterOpenBracket: AlwaysBreak
+AlignArrayOfStructures: Right
+#AlignConsecutiveAssignments: Consecutive
+AlignConsecutiveBitFields: Consecutive
+AlignConsecutiveMacros: Consecutive
 AlignEscapedNewlines: Right
-BreakBeforeBraces: Allman
-BreakTemplateDeclarations: Yes
+#AlignOperands: Align
 
 IncludeBlocks: Regroup
 SortIncludes: CaseSensitive
-SortUsingDeclarations: Lexicographic
 
 Cpp11BracedListStyle: false
 SpaceBeforeCpp11BracedList: true
 SpaceInEmptyBlock: true
 
+IndentCaseLabels: true
+IndentExternBlock: NoIndent
+IndentPPDirectives: BeforeHash
+
+InsertBraces: true
 InsertNewlineAtEOF: true
 
-# Header formatting
-
-ColumnLimit: 80
-AccessModifierOffset: -4
-BinPackParameters: false
-
-AlignConsecutiveBitFields: AcrossEmptyLines
-
-AllowAllParametersOfDeclarationOnNextLine: false
-AllowShortFunctionsOnASingleLine: All
-
-BreakInheritanceList: AfterColon
-ConstructorInitializerIndentWidth: 8
-
+PenaltyBreakAssignment: 1000
 PenaltyBreakOpenParenthesis: 0
